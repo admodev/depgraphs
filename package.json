@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "cytoscape": "^3.33.2",
+    "cytoscape-dagre": "^2.5.0",
     "handlebars": "^4.7.9",
     "typescript": "^6.0.2"
   },
