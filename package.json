@@ -1,10 +1,13 @@
 {
   "name": "depgraphs",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "CLI dependency graph explorer for npm, Cargo, Go modules, and pip",
+  "bin": {
+    "depgraphs": "./build/index.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc && cp -r src/templates build/",
+    "start": "node build/index.js"
   },
   "keywords": [],
   "author": "",

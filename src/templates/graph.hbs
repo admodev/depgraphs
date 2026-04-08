@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{title}} — depgraphs</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #header {
+      padding: 10px 20px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    #project-title { font-weight: 600; font-size: 14px; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+    }
+
+    #stats { font-size: 12px; color: #8b949e; margin-left: auto; }
+
+    #cy { flex: 1; }
+
+    #tooltip {
+      position: fixed;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      max-width: 280px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    #tooltip .pkg-name    { font-weight: 600; color: #58a6ff; font-family: monospace; }
+    #tooltip .pkg-version { color: #8b949e; font-family: monospace; }
+    #tooltip .pkg-deps    { margin-top: 4px; color: #8b949e; font-size: 11px; }
+    #tooltip .pkg-root    { color: #3fb950; font-size: 11px; margin-top: 2px; }
+
+    #legend {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #8b949e;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+    .dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <span id="project-title">{{title}}</span>
+  <span class="badge">{{ecosystem}}</span>
+  <span id="stats">{{packageCount}} packages &middot; {{edgeCount}} edges</span>
+</div>
+
+<div id="cy"></div>
+<div id="tooltip"></div>
+
+<div id="legend">
+  <div class="legend-item">
+    <div class="dot" style="background:#0d419d;border:2px solid #388bfd"></div>
+    direct dependency
+  </div>
+  <div class="legend-item">
+    <div class="dot" style="background:#21262d;border:1px solid #30363d"></div>
+    transitive dependency
+  </div>
+</div>
+
+<script>{{{cytoscapeJs}}}</script>
+<script>{{{dagreJs}}}</script>
+<script>{{{cytoscapeDagreJs}}}</script>
+<script>
+  cytoscape.use(cytoscapeDagre);
+
+  const elements = {{{elementsJson}}};
+
+  const cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements,
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'background-color': '#21262d',
+          'border-color': '#30363d',
+          'border-width': 1,
+          'label': 'data(label)',
+          'color': '#c9d1d9',
+          'font-size': '11px',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'width': 'label',
+          'height': 'label',
+          'padding': '8px 14px',
+          'shape': 'roundrectangle',
+          'font-family': '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+        }
+      },
+      {
+        selector: 'node[?isRoot]',
+        style: {
+          'background-color': '#0d419d',
+          'border-color': '#388bfd',
+          'border-width': 2,
+          'color': '#cae8ff',
+        }
+      },
+      {
+        selector: 'node:selected',
+        style: {
+          'border-color': '#f78166',
+          'border-width': 2,
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 1,
+          'line-color': '#30363d',
+          'target-arrow-color': '#30363d',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'arrow-scale': 0.75,
+        }
+      },
+      {
+        selector: 'edge:selected',
+        style: {
+          'line-color': '#58a6ff',
+          'target-arrow-color': '#58a6ff',
+        }
+      },
+    ],
+    layout: {
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 40,
+      rankSep: 70,
+      edgeSep: 10,
+      fit: true,
+      padding: 32,
+      animate: false,
+    },
+    minZoom: 0.05,
+    maxZoom: 4,
+  });
+
+  const tooltip = document.getElementById('tooltip');
+
+  cy.on('mouseover', 'node', function(e) {
+    const d = e.target.data();
+    const depsCount = cy.edges('[source = "' + d.id + '"]').length;
+    tooltip.innerHTML =
+      '<div class="pkg-name">' + d.name + '</div>' +
+      '<div class="pkg-version">v' + d.version + '</div>' +
+      '<div class="pkg-deps">' + depsCount + ' direct dep' + (depsCount !== 1 ? 's' : '') + '</div>' +
+      (d.isRoot ? '<div class="pkg-root">&#10003; direct dependency</div>' : '');
+    tooltip.style.display = 'block';
+  });
+
+  cy.on('mousemove', 'node', function(e) {
+    const x = e.originalEvent.clientX;
+    const y = e.originalEvent.clientY;
+    const tw = tooltip.offsetWidth;
+    const th = tooltip.offsetHeight;
+    tooltip.style.left = (x + tw + 20 > window.innerWidth ? x - tw - 8 : x + 12) + 'px';
+    tooltip.style.top  = (y + th + 20 > window.innerHeight ? y - th - 8 : y + 12) + 'px';
+  });
+
+  cy.on('mouseout', 'node', function() {
+    tooltip.style.display = 'none';
+  });
+
+  cy.on('tap', 'node', function(e) {
+    const node = e.target;
+    const connected = node.connectedEdges();
+    cy.elements().not(connected).not(node).style('opacity', 0.2);
+    node.style('opacity', 1);
+    connected.style('opacity', 1);
+    connected.connectedNodes().style('opacity', 1);
+  });
+
+  cy.on('tap', function(e) {
+    if (e.target === cy) cy.elements().style('opacity', 1);
+  });
+</script>
+
+</body>
+</html>
